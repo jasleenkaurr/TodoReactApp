@@ -1,17 +1,19 @@
-// TodoWrapper.js
 import React, { useState, useEffect } from "react";
 import { Todo } from "./Todo";
 import { TodoForm } from "./TodoForm";
+import { EditTodoForm } from "./EditTodoForm";
 import { v4 as uuidv4 } from "uuid";
 
 export const TodoWrapper = () => {
   const [todos, setTodos] = useState([]);
-  const [filter, setFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("asc");
+  const [filteredTodos, setFilteredTodos] = useState([]);
 
   useEffect(() => {
-    const savedTodos = JSON.parse(localStorage.getItem("todos")) || [];
-    setTodos(savedTodos);
+    const storedTodos = JSON.parse(localStorage.getItem("todos"));
+    if (storedTodos) {
+      setTodos(storedTodos);
+      setFilteredTodos(storedTodos);
+    }
   }, []);
 
   useEffect(() => {
@@ -19,81 +21,83 @@ export const TodoWrapper = () => {
   }, [todos]);
 
   const addTodo = (todo) => {
-    if (todo.trim() === "") {
-      alert("Task cannot be empty");
-      return;
+    if (todo.trim() !== "") {
+      const newTodos = [
+        ...todos,
+        { id: uuidv4(), task: todo, completed: false, isEditing: false },
+      ];
+      setTodos(newTodos);
+      setFilteredTodos(newTodos);
     }
-    if (todos.some((t) => t.task === todo)) {
-      alert("Task already exists");
-      return;
-    }
-    setTodos([
-      ...todos,
-      { id: uuidv4(), task: todo, completed: false, isEditing: false },
-    ]);
   };
 
-  const deleteTodo = (id) => setTodos(todos.filter((todo) => todo.id !== id));
+  const deleteTodo = (id) => {
+    const newTodos = todos.filter((todo) => todo.id !== id);
+    setTodos(newTodos);
+    setFilteredTodos(newTodos);
+  };
 
   const toggleComplete = (id) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
+    const newTodos = todos.map((todo) =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
     );
+    setTodos(newTodos);
+    setFilteredTodos(newTodos);
   };
 
-const moveUp = (taskId) => {
-  const index = todos.findIndex((todo) => todo.id === taskId);
-  if (index > 0) {
-    const newTodos = [...todos];
-    [newTodos[index - 1], newTodos[index]] = [newTodos[index], newTodos[index - 1]];
+  const editTodo = (id) => {
+    const newTodos = todos.map((todo) =>
+      todo.id === id ? { ...todo, isEditing: !todo.isEditing } : todo
+    );
     setTodos(newTodos);
-  }
-};
+    setFilteredTodos(newTodos);
+  };
 
-const moveDown = (taskId) => {
-  const index = todos.findIndex((todo) => todo.id === taskId);
-  if (index < todos.length - 1) {
-    const newTodos = [...todos];
-    [newTodos[index], newTodos[index + 1]] = [newTodos[index + 1], newTodos[index]];
+  const editTask = (task, id) => {
+    const newTodos = todos.map((todo) =>
+      todo.id === id ? { ...todo, task, isEditing: !todo.isEditing } : todo
+    );
     setTodos(newTodos);
-  }
-};
+    setFilteredTodos(newTodos);
+  };
 
-  const filteredTodos = todos.filter((todo) => {
-    if (filter === "completed") return todo.completed;
-    if (filter === "incomplete") return !todo.completed;
-    return true;
-  });
+  const sortTodos = () => {
+    const newTodos = [...filteredTodos].sort((a, b) =>
+      a.task.localeCompare(b.task)
+    );
+    setFilteredTodos(newTodos);
+  };
 
-  const sortedTodos = [...filteredTodos].sort((a, b) => {
-    if (sortOrder === "asc") return a.task.localeCompare(b.task);
-    return b.task.localeCompare(a.task);
-  });
+  const filterCompleted = () => {
+    setFilteredTodos(todos.filter((todo) => todo.completed));
+  };
+
+  const resetFilter = () => {
+    setFilteredTodos(todos);
+  };
 
   return (
     <div className="TodoWrapper">
       <h1>Get Things Done!</h1>
       <TodoForm addTodo={addTodo} />
-      <div>
-        <button onClick={() => setFilter("all")}>All</button>
-        <button onClick={() => setFilter("completed")}>Completed</button>
-        <button onClick={() => setFilter("incomplete")}>Incomplete</button>
-        <button onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}>
-          Sort {sortOrder === "asc" ? "Descending" : "Ascending"}
-        </button>
+      <div className="action-buttons">
+        <button onClick={sortTodos}>Sort Tasks</button>
+        <button onClick={filterCompleted}>Show Completed</button>
+        <button onClick={resetFilter}>Show All</button>
       </div>
-      {sortedTodos.map((todo, index) => (
-        <Todo
-          key={todo.id}
-          task={todo}
-          deleteTodo={deleteTodo}
-          toggleComplete={toggleComplete}
-          moveUp={() => moveUp(todo.id)}
-          moveDown={() => moveDown(todo.id)}
-        />
-      ))}
+      {filteredTodos.map((todo) =>
+        todo.isEditing ? (
+          <EditTodoForm key={todo.id} editTodo={editTask} task={todo} />
+        ) : (
+          <Todo
+            key={todo.id}
+            task={todo}
+            deleteTodo={deleteTodo}
+            editTodo={editTodo}
+            toggleComplete={toggleComplete}
+          />
+        )
+      )}
     </div>
   );
 };
